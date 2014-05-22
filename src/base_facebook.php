@@ -37,17 +37,108 @@ if (!function_exists('json_decode')) {
  *
  * @author Naitik Shah <naitik@facebook.com>
  */
-abstract class BaseFacebook
+ 
+class Facebook
 {
-  /**
-   * Version.
+	  /**
+   * Each of the following four methods should be overridden in
+   * a concrete subclass, as they are in the provided Facebook class.
+   * The Facebook class uses PHP sessions to provide a primitive
+   * persistent store, but another subclass--one that you implement--
+   * might use a database, memcache, or an in-memory cache.
+   *
+   * @see Facebook
    */
-  const VERSION = '3.2.3';
 
   /**
+   * Stores the given ($key, $value) pair, so that future calls to
+   * getPersistentData($key) return $value. This call may be in another request.
+   *
+   * @param string $key
+   * @param array $value
+   *
+   * @return void
+   */
+  protected function setPersistentData($key, $value) {
+  	return null;
+  }
+
+  /**
+   * Get the data for $key, persisted by BaseFacebook::setPersistentData()
+   *
+   * @param string $key The key of the data to retrieve
+   * @param boolean $default The default value to return if $key is not found
+   *
+   * @return mixed
+   */
+  protected function getPersistentData($key, $default = false){
+	  if ($key) {
+		  return $key;
+	  }
+	  else return false;
+  }
+
+  /**
+   * Clear the data with $key from the persistent storage
+   *
+   * @param string $key
+   *
+   * @return void
+   */
+  protected function clearPersistentData($key){
+  	return null;
+  }
+  /**
+   * Clear all data from the persistent storage
+   *
+   * @return void
+   */
+  protected function clearAllPersistentData(){
+  	return null;
+  }
+	/*
+	*
+	*
+	*
+	*
+	* merge classes
+	*
+	*/
+	const VERSION = '3.2.3';
+	/**
+   * Cookie prefix
+   */
+  const FBSS_COOKIE_NAME = 'fbss';
+	/**
    * Signed Request Algorithm.
    */
   const SIGNED_REQUEST_ALGORITHM = 'HMAC-SHA256';
+  /**
+   * We can set this to a high number because the main session
+   * expiration will trump this.
+   */
+  const FBSS_COOKIE_EXPIRE = 31556926; // 1 year
+
+  /**
+   * Stores the shared session ID if one is set.
+   *
+   * @var string
+   */
+  protected $sharedSessionID;
+
+  /**
+   * Identical to the parent constructor, except that
+   * we start a PHP session to store the user ID and
+   * access token if during the course of execution
+   * we discover them.
+   *
+   * @param array $config the application configuration. Additionally
+   * accepts "sharedSession" as a boolean to turn on a secondary
+   * cookie for environments with a shared session (that is, your app
+   * shares the domain with other apps).
+   *
+   * @see BaseFacebook::__construct
+   */
 
   /**
    * Default options for curl.
@@ -110,7 +201,7 @@ abstract class BaseFacebook
 
   /**
    * The data from the signed_request token.
-   *in
+   *
    * @var string
    */
   protected $signedRequest;
@@ -181,6 +272,23 @@ abstract class BaseFacebook
     if (!empty($state)) {
       $this->state = $state;
     }
+	/*
+	if ((function_exists('session_status') 
+      && session_status() !== PHP_SESSION_ACTIVE) || !session_id()) {
+      session_start();
+    }*/
+    if (!empty($config['sharedSession'])) {
+      $this->initSharedSession();
+
+      // re-load the persisted state, since parent
+      // attempted to read out of non-shared cookie
+      $state = $this->getPersistentData('state');
+      if (!empty($state)) {
+        $this->state = $state;
+      } else {
+        $this->state = null;
+	  }
+   }
   }
 
   /**
@@ -1397,51 +1505,4 @@ abstract class BaseFacebook
     }
     return substr($big, -$len) === $small;
   }
-
-  /**
-   * Each of the following four methods should be overridden in
-   * a concrete subclass, as they are in the provided Facebook class.
-   * The Facebook class uses PHP sessions to provide a primitive
-   * persistent store, but another subclass--one that you implement--
-   * might use a database, memcache, or an in-memory cache.
-   *
-   * @see Facebook
-   */
-
-  /**
-   * Stores the given ($key, $value) pair, so that future calls to
-   * getPersistentData($key) return $value. This call may be in another request.
-   *
-   * @param string $key
-   * @param array $value
-   *
-   * @return void
-   */
-  abstract protected function setPersistentData($key, $value);
-
-  /**
-   * Get the data for $key, persisted by BaseFacebook::setPersistentData()
-   *
-   * @param string $key The key of the data to retrieve
-   * @param boolean $default The default value to return if $key is not found
-   *
-   * @return mixed
-   */
-  abstract protected function getPersistentData($key, $default = false);
-
-  /**
-   * Clear the data with $key from the persistent storage
-   *
-   * @param string $key
-   *
-   * @return void
-   */
-  abstract protected function clearPersistentData($key);
-
-  /**
-   * Clear all data from the persistent storage
-   *
-   * @return void
-   */
-  abstract protected function clearAllPersistentData();
 }
